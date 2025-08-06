@@ -174,7 +174,7 @@ function PaymentConfirmationContent() {
                     Coba Lagi
                   </Button>
                   <Button 
-                    onClick={() => window.open('https://wa.me/6285157975587?text=Halo,%20saya%20mengalami%20masalah%20dengan%20konfirmasi%20pembayaran', '_blank')}
+                    onClick={() => window.open('https://links.topsellbelanja.com/wa-cs-topsellbelanja', '_blank')}
                     className="flex items-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
