@@ -362,7 +362,7 @@ export default function PaymentProofUpload({ invoiceNumber }: PaymentProofUpload
                     </Button>
                     <Button 
                       size="sm"
-                      onClick={() => window.open('https://wa.me/6285157975587?text=Halo,%20saya%20mengalami%20masalah%20upload%20bukti%20transfer:%20' + encodeURIComponent(error), '_blank')}
+                      onClick={() => window.open('https://links.topsellbelanja.com/wa-cs-topsellbelanja' + encodeURIComponent(error), '_blank')}
                       className="flex items-center gap-1 text-xs"
                     >
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
