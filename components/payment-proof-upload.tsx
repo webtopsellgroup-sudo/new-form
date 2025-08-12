@@ -176,6 +176,7 @@ export default function PaymentProofUpload({ invoiceNumber, transferDetails }: P
           transferTime: transferDetails.transferTime,
           transferAmount: transferDetails.transferAmount,
           notes: transferDetails.notes,
+          destinationBank: transferDetails.destinationBank,
         },
         paymentProof: uploadedImageData.display_url,
         submittedAt: new Date().toISOString(),

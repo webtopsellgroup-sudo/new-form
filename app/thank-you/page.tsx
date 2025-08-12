@@ -34,7 +34,7 @@ export default function ThankYouPage() {
       ? `Halo Admin, saya telah melakukan transfer pembayaran untuk invoice ${invoiceData.invoice}. Mohon konfirmasi status pembayaran saya. Terima kasih.`
       : `Halo Admin, saya telah melakukan transfer pembayaran. Mohon konfirmasi status pembayaran saya. Terima kasih.`
 
-    const whatsappUrl = `https://wa.me/6285157975587?text=${encodeURIComponent(message)}`
+    const whatsappUrl = `https://wa.me/6281236075777?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, "_blank")
   }
 
