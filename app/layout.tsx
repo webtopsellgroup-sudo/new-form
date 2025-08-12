@@ -6,7 +6,7 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Form Konfirmasi DP',
   description: 'Created with Andi Susato',
-  generator: 'V0 x Andi',
+  generator: 'V1.3',
 }
 
 export default function RootLayout({
