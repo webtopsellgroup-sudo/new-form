@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-
+import type { TransferDetailsData } from "./transfer-details-form"
 import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,9 +11,11 @@ import { Upload, CheckCircle, AlertCircle, X, ImageIcon, Send } from "lucide-rea
 
 interface PaymentProofUploadProps {
   invoiceNumber: string
+  transferDetails: TransferDetailsData
 }
 
-export default function PaymentProofUpload({ invoiceNumber }: PaymentProofUploadProps) {
+// Fixed export to be default export and added missing state variables
+export default function PaymentProofUpload({ invoiceNumber, transferDetails }: PaymentProofUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -149,7 +151,6 @@ export default function PaymentProofUpload({ invoiceNumber }: PaymentProofUpload
         throw new Error("Data invoice tidak ditemukan")
       }
 
-      // Prepare simplified data for webhook
       const webhookData = {
         invoice: invoiceData.invoice,
         customer: {
@@ -167,7 +168,16 @@ export default function PaymentProofUpload({ invoiceNumber }: PaymentProofUpload
         })),
         total: invoiceData.total,
         paymentMethod: invoiceData.paymentMethod.name,
-        paymentProof: uploadedImageData.display_url, // Menggunakan display_url untuk tautan langsung ke gambar
+        transferDetails: {
+          customerName: transferDetails.customerName,
+          accountNumber: transferDetails.accountNumber,
+          senderBank: transferDetails.senderBank,
+          transferDate: transferDetails.transferDate,
+          transferTime: transferDetails.transferTime,
+          transferAmount: transferDetails.transferAmount,
+          notes: transferDetails.notes,
+        },
+        paymentProof: uploadedImageData.display_url,
         submittedAt: new Date().toISOString(),
       }
 
@@ -185,17 +195,60 @@ export default function PaymentProofUpload({ invoiceNumber }: PaymentProofUpload
       console.log("Webhook response:", response.status, responseText) // For debugging
 
       if (!response.ok) {
-        throw new Error(`Webhook error: ${response.status} - ${responseText}`)
+        // Enhanced webhook error handling with specific error detection
+        let parsedError = null
+        try {
+          parsedError = JSON.parse(responseText)
+        } catch (e) {
+          // Response is not JSON
+        }
+
+        if (response.status === 404) {
+          if (parsedError?.message?.includes("webhook") && parsedError?.message?.includes("not registered")) {
+            throw new Error("WEBHOOK_NOT_CONFIGURED")
+          } else if (parsedError?.hint?.includes("test mode")) {
+            throw new Error("WEBHOOK_TEST_MODE")
+          } else {
+            throw new Error("WEBHOOK_NOT_FOUND")
+          }
+        } else if (response.status === 500 && parsedError?.message?.includes("webhook")) {
+          throw new Error("WEBHOOK_SERVER_ERROR")
+        } else {
+          throw new Error(`Webhook error: ${response.status} - ${responseText}`)
+        }
       }
 
-      setSubmitSuccess(true)
+      const transferDataForStorage = {
+        ...transferDetails,
+        senderBank:
+          typeof transferDetails.senderBank === "object"
+            ? transferDetails.senderBank.name || transferDetails.senderBank.paymentGroup || "Bank tidak diketahui"
+            : transferDetails.senderBank,
+      }
+
+      localStorage.setItem("submittedTransferData", JSON.stringify(transferDataForStorage))
+
+      // Redirect to thank you page
+      window.location.href = "/thank-you"
     } catch (err) {
       console.error("Webhook submission error:", err)
 
       let errorMessage = "Terjadi kesalahan saat mengirim data"
 
       if (err instanceof Error) {
-        if (err.message.includes("Failed to fetch")) {
+        // Added specific error messages for webhook configuration issues
+        if (err.message === "WEBHOOK_NOT_CONFIGURED") {
+          errorMessage =
+            "Webhook 'inbound_invoices' belum dikonfigurasi di sistem n8n. Silakan hubungi admin untuk mengaktifkan webhook ini."
+        } else if (err.message === "WEBHOOK_TEST_MODE") {
+          errorMessage =
+            "Sistem pembayaran dalam mode test. Admin perlu mengklik tombol 'Execute workflow' di n8n terlebih dahulu. Silakan hubungi admin."
+        } else if (err.message === "WEBHOOK_NOT_FOUND") {
+          errorMessage =
+            "Endpoint pembayaran tidak ditemukan. URL webhook mungkin salah atau tidak aktif. Silakan hubungi admin."
+        } else if (err.message === "WEBHOOK_SERVER_ERROR") {
+          errorMessage = "Server webhook mengalami error internal. Silakan coba beberapa saat lagi atau hubungi admin."
+        } else if (err.message.includes("Failed to fetch")) {
           errorMessage = "Tidak dapat terhubung ke server. Periksa koneksi internet Anda dan coba lagi."
         } else if (err.message.includes("500")) {
           errorMessage = "Server sedang mengalami gangguan. Silakan coba beberapa saat lagi."
@@ -281,73 +334,22 @@ export default function PaymentProofUpload({ invoiceNumber }: PaymentProofUpload
                         ? "Ukuran File Terlalu Besar"
                         : error.includes("Gagal mengupload")
                           ? "Upload Gagal"
-                          : error.includes("Webhook error")
-                            ? "Gagal Mengirim Data"
-                            : error.includes("Data invoice tidak ditemukan")
-                              ? "Data Tidak Lengkap"
-                              : "Terjadi Kesalahan"}
+                          : error.includes("WEBHOOK_NOT_CONFIGURED")
+                            ? "Webhook Tidak Dikonfigurasi"
+                            : error.includes("WEBHOOK_TEST_MODE")
+                              ? "Mode Test Aktif"
+                              : error.includes("WEBHOOK_NOT_FOUND")
+                                ? "Endpoint Webhook Tidak Ditemukan"
+                                : error.includes("WEBHOOK_SERVER_ERROR")
+                                  ? "Error Internal Server Webhook"
+                                  : error.includes("Webhook error")
+                                    ? "Gagal Mengirim Data"
+                                    : error.includes("Data invoice tidak ditemukan")
+                                      ? "Data Tidak Lengkap"
+                                      : "Terjadi Kesalahan"}
                   </h4>
                   <div className="text-xs text-gray-600 mb-3">
-                    {error.includes("Format file") ? (
-                      <div>
-                        <p className="mb-1">File yang Anda pilih tidak dalam format yang didukung.</p>
-                        <p className="font-medium">Solusi:</p>
-                        <ul className="list-disc list-inside mt-1 space-y-0.5">
-                          <li>Gunakan file dengan format PNG, JPEG, atau JPG</li>
-                          <li>Pastikan ekstensi file benar (.png, .jpg, .jpeg)</li>
-                        </ul>
-                      </div>
-                    ) : error.includes("Ukuran file") ? (
-                      <div>
-                        <p className="mb-1">File yang Anda pilih terlalu besar untuk diupload.</p>
-                        <p className="font-medium">Solusi:</p>
-                        <ul className="list-disc list-inside mt-1 space-y-0.5">
-                          <li>Kompres gambar menggunakan aplikasi foto</li>
-                          <li>Pilih gambar dengan resolusi lebih kecil</li>
-                          <li>Maksimal ukuran file adalah 5MB</li>
-                        </ul>
-                      </div>
-                    ) : error.includes("Gagal mengupload") ? (
-                      <div>
-                        <p className="mb-1">Gambar tidak dapat diupload ke server.</p>
-                        <p className="font-medium">Kemungkinan penyebab:</p>
-                        <ul className="list-disc list-inside mt-1 space-y-0.5">
-                          <li>Koneksi internet tidak stabil</li>
-                          <li>Server upload sedang bermasalah</li>
-                          <li>File rusak atau corrupt</li>
-                        </ul>
-                      </div>
-                    ) : error.includes("Webhook error") ? (
-                      <div>
-                        <p className="mb-1">Data berhasil diupload tapi gagal dikirim ke sistem.</p>
-                        <p className="font-medium">Kemungkinan penyebab:</p>
-                        <ul className="list-disc list-inside mt-1 space-y-0.5">
-                          <li>Server sistem sedang maintenance</li>
-                          <li>Koneksi ke server terputus</li>
-                          <li>Data tidak lengkap atau format salah</li>
-                        </ul>
-                        <div className="mt-2 p-2 bg-red-50 rounded text-xs font-mono text-red-700">
-                          {"Error: " + error}
-                        </div>
-                      </div>
-                    ) : error.includes("Data invoice tidak ditemukan") ? (
-                      <div>
-                        <p className="mb-1">Data invoice tidak dapat ditemukan di sistem.</p>
-                        <p className="font-medium">Kemungkinan penyebab:</p>
-                        <ul className="list-disc list-inside mt-1 space-y-0.5">
-                          <li>Halaman dimuat ulang dan data hilang</li>
-                          <li>Session browser bermasalah</li>
-                          <li>Link invoice sudah kedaluwarsa</li>
-                        </ul>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="mb-1">Terjadi kesalahan yang tidak terduga.</p>
-                        <div className="mt-2 p-2 bg-red-50 rounded text-xs font-mono text-red-700">
-                          {"Error: " + error}
-                        </div>
-                      </div>
-                    )}
+                    <p className="mb-1">{error}</p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button
