@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     uploadFormData.append("image", imageBase64)
 
     const response = await fetch(
-      "https://api.imgbb.com/1/upload?expiration=86400&key=2ae468065db125826b9f84f1409b06bc",
+      "https://api.imgbb.com/1/upload?expiration=300&key=2ae468065db125826b9f84f1409b06bc",
       {
         method: "POST",
         body: uploadFormData,
