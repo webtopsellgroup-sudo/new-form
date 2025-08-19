@@ -378,7 +378,7 @@ export default function PaymentProofUpload({ invoiceNumber, transferDetails }: P
                       size="sm"
                       onClick={() =>
                         window.open(
-                          "https://wa.me/6285157975587?text=Halo,%20saya%20mengalami%20masalah%20upload%20bukti%20transfer:%20" +
+                          "https://wa.me/6281236075777?text=Halo,%20saya%20mengalami%20masalah%20upload%20bukti%20transfer:%20" +
                             encodeURIComponent(error),
                           "_blank",
                         )

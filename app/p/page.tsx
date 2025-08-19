@@ -278,7 +278,7 @@ function PaymentConfirmationContent() {
                     <Button
                       onClick={() =>
                         window.open(
-                          "https://wa.me/6285157975587?text=Halo,%20saya%20mengalami%20masalah%20dengan%20konfirmasi%20pembayaran",
+                          "https://wa.me/6281236075777?text=Halo,%20saya%20mengalami%20masalah%20dengan%20konfirmasi%20pembayaran",
                           "_blank",
                         )
                       }
