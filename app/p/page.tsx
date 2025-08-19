@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { AlertCircle, Package, User, MapPin, CreditCard, Phone, Mail } from "lucide-react"
 import PaymentProofUpload from "@/components/payment-proof-upload"
 import TransferDetailsForm, { type TransferDetailsData } from "@/components/transfer-details-form"
+import TransferDestinationForm, { type DestinationBank } from "@/components/transfer-destination-form"
 import { Button } from "@/components/ui/button"
 
 interface Product {
@@ -52,6 +53,8 @@ function PaymentConfirmationContent() {
   const [transferDetails, setTransferDetails] = useState<TransferDetailsData | null>(null)
   const [showPaymentUpload, setShowPaymentUpload] = useState(false)
   const [isRetrying, setIsRetrying] = useState(false)
+  const [selectedDestination, setSelectedDestination] = useState<DestinationBank | null>(null)
+  const [showTransferDetails, setShowTransferDetails] = useState(false)
 
   const fetchInvoiceData = async (attempt = 0) => {
     if (isRetrying && attempt > 0) {
@@ -141,6 +144,18 @@ function PaymentConfirmationContent() {
 
   const handleTransferDetailsIncomplete = () => {
     setShowPaymentUpload(false)
+  }
+
+  const handleDestinationSelected = (destination: DestinationBank) => {
+    setSelectedDestination(destination)
+    setShowTransferDetails(true)
+  }
+
+  const handleDestinationCleared = () => {
+    setSelectedDestination(null)
+    setShowTransferDetails(false)
+    setShowPaymentUpload(false)
+    setTransferDetails(null)
   }
 
   if (loading) {
@@ -263,7 +278,7 @@ function PaymentConfirmationContent() {
                     <Button
                       onClick={() =>
                         window.open(
-                          "https://wa.me/6281236075777?text=Halo,%20saya%20mengalami%20masalah%20dengan%20konfirmasi%20pembayaran",
+                          "https://wa.me/6285157975587?text=Halo,%20saya%20mengalami%20masalah%20dengan%20konfirmasi%20pembayaran",
                           "_blank",
                         )
                       }
@@ -423,12 +438,20 @@ function PaymentConfirmationContent() {
           </CardContent>
         </Card>
 
-        {/* Transfer Details Form */}
-        <TransferDetailsForm
-          totalAmount={invoiceData.total}
-          onFormComplete={handleTransferDetailsComplete}
-          onFormIncomplete={handleTransferDetailsIncomplete}
+        {/* Transfer Destination Form */}
+        <TransferDestinationForm
+          onDestinationSelected={handleDestinationSelected}
+          onDestinationCleared={handleDestinationCleared}
         />
+
+        {showTransferDetails && (
+          <TransferDetailsForm
+            totalAmount={invoiceData.total}
+            destinationBank={selectedDestination}
+            onFormComplete={handleTransferDetailsComplete}
+            onFormIncomplete={handleTransferDetailsIncomplete}
+          />
+        )}
 
         {showPaymentUpload && transferDetails && (
           <PaymentProofUpload invoiceNumber={invoiceData.invoice} transferDetails={transferDetails} />

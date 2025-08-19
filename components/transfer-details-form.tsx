@@ -5,13 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { CreditCard, AlertTriangle, CheckCircle, Info, Copy, Building } from "lucide-react"
+import { CreditCard, AlertTriangle, CheckCircle, Info, ChevronDown } from "lucide-react"
+import type { DestinationBank } from "./transfer-destination-form"
 
 interface TransferDetailsFormProps {
   totalAmount: number
+  destinationBank: DestinationBank | null
   onFormComplete: (data: TransferDetailsData) => void
   onFormIncomplete: () => void
 }
@@ -24,50 +24,7 @@ export interface TransferDetailsData {
   transferTime: string
   transferAmount: number
   notes: string
-  destinationBank: {
-    bankName: string
-    accountNumber: string
-    accountName: string
-  } | null
-}
-
-const bankAccounts = {
-  elektronik: {
-    bca: {
-      bankName: "Bank BCA",
-      accountNumber: "6105558833",
-      accountName: "PT Membangun Berkat Bersama",
-    },
-    mandiri: {
-      bankName: "Bank Mandiri",
-      accountNumber: "420070907091",
-      accountName: "PT. Membangun Berkat Bersama",
-    },
-  },
-  sepedaListrik: {
-    bca: {
-      bankName: "Bank BCA",
-      accountNumber: "6105863636",
-      accountName: "PT. TRI Kasih Karunia",
-    },
-    mandiri: {
-      bankName: "Bank Mandiri",
-      accountNumber: "1420500068878",
-      accountName: "PT. TRI Kasih Karunia",
-    },
-  },
-  default: {
-    bca: {
-      bankName: "Bank BCA",
-      accountNumber: "6105863636",
-      accountName: "PT. Topsel Raharja Indonesia",
-    },
-    mandiri: {
-      bankName: "Bank Mandiri",
-      accountNumber: "1420099191990",
-      accountName: "PT. Topsel Raharja Indonesia",
-    },
-  },
+  destinationBank: DestinationBank | null
 }
 
 const bankOptions = [
@@ -98,6 +55,7 @@ const bankOptions = [
 
 export default function TransferDetailsForm({
   totalAmount,
+  destinationBank,
   onFormComplete,
   onFormIncomplete,
 }: TransferDetailsFormProps) {
@@ -118,59 +76,9 @@ export default function TransferDetailsForm({
     difference?: number
   }>({ type: "empty", message: "" })
 
-  const [destinationBanks, setDestinationBanks] = useState(bankAccounts.default)
-  const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
-
-  const determineDestinationBanks = () => {
-    try {
-      const invoiceData = localStorage.getItem("currentInvoiceData")
-      if (invoiceData) {
-        const invoice = JSON.parse(invoiceData)
-        if (invoice.products && invoice.products.length > 0) {
-          const firstProduct = invoice.products[0]
-          const productName = firstProduct.name.toLowerCase()
-
-          if (
-            productName.includes("elektronik") ||
-            productName.includes("handphone") ||
-            productName.includes("laptop") ||
-            productName.includes("smartphone") ||
-            productName.includes("tablet") ||
-            productName.includes("gadget")
-          ) {
-            setDestinationBanks(bankAccounts.elektronik)
-            return
-          }
-
-          if (
-            productName.includes("sepeda listrik") ||
-            productName.includes("e-bike") ||
-            productName.includes("electric bike")
-          ) {
-            setDestinationBanks(bankAccounts.sepedaListrik)
-            return
-          }
-        }
-      }
-
-      setDestinationBanks(bankAccounts.default)
-    } catch (error) {
-      console.error("Error determining destination banks:", error)
-      setDestinationBanks(bankAccounts.default)
-    }
-  }
-
-  const copyToClipboard = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopyFeedback(`${label} berhasil disalin!`)
-      setTimeout(() => setCopyFeedback(null), 2000)
-    } catch (error) {
-      console.error("Failed to copy:", error)
-      setCopyFeedback("Gagal menyalin")
-      setTimeout(() => setCopyFeedback(null), 2000)
-    }
-  }
+  const [bankInput, setBankInput] = useState("")
+  const [showBankDropdown, setShowBankDropdown] = useState(false)
+  const [filteredBanks, setFilteredBanks] = useState(bankOptions)
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("id-ID", {
@@ -228,9 +136,29 @@ export default function TransferDetailsForm({
       formData.transferDate !== "" &&
       formData.transferTime !== "" &&
       formData.transferAmount > 0 &&
-      formData.destinationBank !== null
+      destinationBank !== null
     )
   }
+
+  const handleBankInputChange = (value: string) => {
+    setBankInput(value)
+    setFormData((prev) => ({ ...prev, senderBank: value }))
+
+    // Filter banks based on input
+    const filtered = bankOptions.filter((bank) => bank.toLowerCase().includes(value.toLowerCase()))
+    setFilteredBanks(filtered)
+    setShowBankDropdown(value.length > 0 && filtered.length > 0)
+  }
+
+  const handleBankSelect = (bank: string) => {
+    setBankInput(bank)
+    setFormData((prev) => ({ ...prev, senderBank: bank }))
+    setShowBankDropdown(false)
+  }
+
+  useEffect(() => {
+    setFormData((prev) => ({ ...prev, destinationBank }))
+  }, [destinationBank])
 
   useEffect(() => {
     if (isFormComplete()) {
@@ -238,289 +166,210 @@ export default function TransferDetailsForm({
     } else {
       onFormIncomplete()
     }
-  }, [formData, onFormComplete, onFormIncomplete])
+  }, [formData, destinationBank, onFormComplete, onFormIncomplete])
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0]
     setFormData((prev) => ({ ...prev, transferDate: today }))
   }, [])
 
-  useEffect(() => {
-    determineDestinationBanks()
-  }, [])
+  if (!destinationBank) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              Silakan pilih rekening tujuan terlebih dahulu sebelum mengisi detail transfer.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Detail Transfer
-          </CardTitle>
-          <CardDescription>Lengkapi detail transfer pembayaran Anda</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center gap-2 text-blue-800 mb-2">
-              <Info className="h-4 w-4" />
-              <span className="font-medium">Total Tagihan</span>
-            </div>
-            <div className="text-2xl font-bold text-blue-900">{formatCurrency(totalAmount)}</div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5" />
+          Detail Transfer
+        </CardTitle>
+        <CardDescription>Lengkapi detail transfer pembayaran Anda</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-blue-800 mb-2">
+            <Info className="h-4 w-4" />
+            <span className="font-medium">Total Tagihan</span>
           </div>
+          <div className="text-2xl font-bold text-blue-900">{formatCurrency(totalAmount)}</div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="customerName">
-                Nama Anda <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="customerName"
-                value={formData.customerName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, customerName: e.target.value }))}
-                placeholder="Masukkan nama lengkap Anda"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="accountNumber">No Rekening (Opsional)</Label>
-              <Input
-                id="accountNumber" type="number"
-                value={formData.accountNumber}
-                onChange={(e) => setFormData((prev) => ({ ...prev, accountNumber: e.target.value }))}
-                placeholder="Nomor rekening pengirim"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="senderBank">
-                Pilih Bank Pengirim <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={formData.senderBank}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, senderBank: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih bank pengirim" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bankOptions.map((bank) => (
-                    <SelectItem key={bank} value={bank}>
-                      {bank}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="transferDate">
-                Tanggal Transfer <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="transferDate"
-                type="date"
-                value={formData.transferDate}
-                onChange={(e) => setFormData((prev) => ({ ...prev, transferDate: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="transferTime">
-                Waktu Transfer <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="transferTime"
-                type="time"
-                value={formData.transferTime}
-                onChange={(e) => setFormData((prev) => ({ ...prev, transferTime: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="transferAmount">
-                Nominal Transfer <span className="text-red-500">*</span>
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">Rp</span>
-                <Input
-                  id="transferAmount"
-                  value={formatAmountDisplay(formData.transferAmount)}
-                  onChange={(e) => handleAmountChange(e.target.value)}
-                  placeholder="0"
-                  className="pl-8"
-                />
-              </div>
-
-              {amountValidation.type === "valid" && (
-                <Alert className="border-green-200 bg-green-50">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">{amountValidation.message}</AlertDescription>
-                </Alert>
-              )}
-
-              {amountValidation.type === "overpaid" && (
-                <Alert className="border-orange-200 bg-orange-50">
-                  <AlertTriangle className="h-4 w-4 text-orange-600" />
-                  <AlertDescription className="text-orange-800">
-                    {amountValidation.message}
-                    <div className="mt-1 font-medium">
-                      Kelebihan: {formatCurrency(amountValidation.difference || 0)}
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {amountValidation.type === "underpaid" && (
-                <Alert className="border-red-200 bg-red-50">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <AlertDescription className="text-red-800">
-                    {amountValidation.message}
-                    <div className="mt-1 font-medium">Selisih: {formatCurrency(amountValidation.difference || 0)}</div>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="notes">Catatan</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
-              placeholder="Catatan tambahan (opsional)"
-              rows={3}
+            <Label htmlFor="customerName">
+              Nama Anda <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="customerName"
+              value={formData.customerName}
+              onChange={(e) => setFormData((prev) => ({ ...prev, customerName: e.target.value }))}
+              placeholder="Masukkan nama lengkap Anda"
             />
           </div>
 
-          {!isFormComplete() && (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription  className="font-semibold text-red-600">
-                Lengkapi semua field yang wajib diisi (bertanda *) untuk melanjutkan ke upload bukti transfer.
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building className="h-5 w-5" />
-            Tujuan Transfer
-          </CardTitle>
-          <CardDescription>Pilih salah satu rekening tujuan untuk transfer pembayaran</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {copyFeedback && (
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">{copyFeedback}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div
-              className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                formData.destinationBank?.bankName === destinationBanks.bca.bankName
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-              onClick={() => setFormData((prev) => ({ ...prev, destinationBank: destinationBanks.bca }))}
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-blue-600">🏦 {destinationBanks.bca.bankName}</h3>
-                  <input
-                    type="radio"
-                    checked={formData.destinationBank?.bankName === destinationBanks.bca.bankName}
-                    onChange={() => setFormData((prev) => ({ ...prev, destinationBank: destinationBanks.bca }))}
-                    className="text-blue-600"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-sm text-gray-600">Nama Rekening:</p>
-                    <p className="font-medium">{destinationBanks.bca.accountName}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Nomor Rekening:</p>
-                    <div className="flex items-center gap-2">
-                      <p className="font-mono font-bold text-lg">{destinationBanks.bca.accountNumber}</p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          copyToClipboard(destinationBanks.bca.accountNumber, "Nomor rekening BCA")
-                        }}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                formData.destinationBank?.bankName === destinationBanks.mandiri.bankName
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-              onClick={() => setFormData((prev) => ({ ...prev, destinationBank: destinationBanks.mandiri }))}
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-blue-600">🏦 {destinationBanks.mandiri.bankName}</h3>
-                  <input
-                    type="radio"
-                    checked={formData.destinationBank?.bankName === destinationBanks.mandiri.bankName}
-                    onChange={() => setFormData((prev) => ({ ...prev, destinationBank: destinationBanks.mandiri }))}
-                    className="text-blue-600"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-sm text-gray-600">Nama Rekening:</p>
-                    <p className="font-medium">{destinationBanks.mandiri.accountName}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Nomor Rekening:</p>
-                    <div className="flex items-center gap-2">
-                      <p className="font-mono font-bold text-lg">{destinationBanks.mandiri.accountNumber}</p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          copyToClipboard(destinationBanks.mandiri.accountNumber, "Nomor rekening Mandiri")
-                        }}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="accountNumber">No Rekening (Opsional)</Label>
+            <Input
+              id="accountNumber"
+              type="number"
+              value={formData.accountNumber}
+              onChange={(e) => setFormData((prev) => ({ ...prev, accountNumber: e.target.value }))}
+              placeholder="Nomor rekening pengirim"
+            />
           </div>
 
-          {!formData.destinationBank && (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                <span className="text-red-500">*</span> Pilih salah satu rekening tujuan sebelum melanjutkan ke upload
-                bukti transfer.
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          <div className="space-y-2">
+            <Label htmlFor="senderBank">
+              Pilih Bank Pengirim <span className="text-red-500">*</span>
+            </Label>
+            <div className="relative">
+              <Input
+                id="senderBank"
+                value={bankInput}
+                onChange={(e) => handleBankInputChange(e.target.value)}
+                onFocus={() => {
+                  if (bankInput.length > 0 && filteredBanks.length > 0) {
+                    setShowBankDropdown(true)
+                  }
+                }}
+                onBlur={() => {
+                  // Delay hiding dropdown to allow selection
+                  setTimeout(() => setShowBankDropdown(false), 200)
+                }}
+                placeholder="Ketik atau pilih bank pengirim"
+                className="pr-8"
+              />
+              <ChevronDown
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 cursor-pointer"
+                onClick={() => {
+                  setShowBankDropdown(!showBankDropdown)
+                  setFilteredBanks(bankOptions)
+                }}
+              />
+
+              {showBankDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                  {filteredBanks.length > 0 ? (
+                    filteredBanks.map((bank) => (
+                      <div
+                        key={bank}
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        onClick={() => handleBankSelect(bank)}
+                      >
+                        {bank}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-gray-500">
+                      Tidak ada bank yang cocok. Anda bisa mengetik manual.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">Ketik nama bank atau pilih dari daftar yang tersedia</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="transferDate">
+              Tanggal Transfer <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="transferDate"
+              type="date"
+              value={formData.transferDate}
+              onChange={(e) => setFormData((prev) => ({ ...prev, transferDate: e.target.value }))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="transferTime">
+              Waktu Transfer <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="transferTime"
+              type="time"
+              value={formData.transferTime}
+              onChange={(e) => setFormData((prev) => ({ ...prev, transferTime: e.target.value }))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="transferAmount">
+              Nominal Transfer <span className="text-red-500">*</span>
+            </Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">Rp</span>
+              <Input
+                id="transferAmount"
+                value={formatAmountDisplay(formData.transferAmount)}
+                onChange={(e) => handleAmountChange(e.target.value)}
+                placeholder="0"
+                className="pl-8"
+              />
+            </div>
+
+            {amountValidation.type === "valid" && (
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">{amountValidation.message}</AlertDescription>
+              </Alert>
+            )}
+
+            {amountValidation.type === "overpaid" && (
+              <Alert className="border-orange-200 bg-orange-50">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-800">
+                  {amountValidation.message}
+                  <div className="mt-1 font-medium">Kelebihan: {formatCurrency(amountValidation.difference || 0)}</div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {amountValidation.type === "underpaid" && (
+              <Alert className="border-red-200 bg-red-50">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800">
+                  {amountValidation.message}
+                  <div className="mt-1 font-medium">Selisih: {formatCurrency(amountValidation.difference || 0)}</div>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="notes">Catatan</Label>
+          <Textarea
+            id="notes"
+            value={formData.notes}
+            onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
+            placeholder="Catatan tambahan (opsional)"
+            rows={3}
+          />
+        </div>
+
+        {!isFormComplete() && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription className="font-semibold text-red-600">
+              Lengkapi semua field yang wajib diisi (bertanda *) untuk melanjutkan ke upload bukti transfer.
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
   )
 }
