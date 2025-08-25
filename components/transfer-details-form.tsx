@@ -135,8 +135,7 @@ export default function TransferDetailsForm({
       formData.senderBank !== "" &&
       formData.transferDate !== "" &&
       formData.transferTime !== "" &&
-      formData.transferAmount > 0 &&
-      destinationBank !== null
+      formData.transferAmount > 0
     )
   }
 
@@ -172,21 +171,6 @@ export default function TransferDetailsForm({
     const today = new Date().toISOString().split("T")[0]
     setFormData((prev) => ({ ...prev, transferDate: today }))
   }, [])
-
-  if (!destinationBank) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              Silakan pilih rekening tujuan terlebih dahulu sebelum mengisi detail transfer.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-    )
-  }
 
   return (
     <Card>

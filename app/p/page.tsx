@@ -10,7 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { AlertCircle, Package, User, MapPin, CreditCard, Phone, Mail } from "lucide-react"
 import PaymentProofUpload from "@/components/payment-proof-upload"
 import TransferDetailsForm, { type TransferDetailsData } from "@/components/transfer-details-form"
-import TransferDestinationForm, { type DestinationBank } from "@/components/transfer-destination-form"
 import { Button } from "@/components/ui/button"
 
 interface Product {
@@ -54,8 +53,6 @@ function PaymentConfirmationContent() {
   const [transferDetails, setTransferDetails] = useState<TransferDetailsData | null>(null)
   const [showPaymentUpload, setShowPaymentUpload] = useState(false)
   const [isRetrying, setIsRetrying] = useState(false)
-  const [selectedDestination, setSelectedDestination] = useState<DestinationBank | null>(null)
-  const [showTransferDetails, setShowTransferDetails] = useState(false)
 
   const fetchInvoiceData = async (attempt = 0) => {
     if (isRetrying && attempt > 0) {
@@ -145,91 +142,6 @@ function PaymentConfirmationContent() {
 
   const handleTransferDetailsIncomplete = () => {
     setShowPaymentUpload(false)
-  }
-
-  const handleDestinationSelected = (destination: DestinationBank) => {
-    setSelectedDestination(destination)
-    setShowTransferDetails(true)
-  }
-
-  const handleDestinationCleared = () => {
-    setSelectedDestination(null)
-    setShowTransferDetails(false)
-    setShowPaymentUpload(false)
-    setTransferDetails(null)
-  }
-
-  const extractProductCategory = (product: Product): string | null => {
-    const priorityCategories = ["Elektronik", "Handphone", "Aksesoris", "Sepeda Listrik", "Laptop"]
-
-    const productName = product.name.toLowerCase()
-
-    // Check for "Sepeda Listrik" first since it's most specific
-    if (productName.includes("sepeda") && productName.includes("listrik")) {
-      return "Sepeda Listrik"
-    }
-    if (productName.includes("sepeda") || productName.includes("e-bike") || productName.includes("ebike")) {
-      return "Sepeda Listrik"
-    }
-
-    // Check other priority categories in product name
-    if (
-      productName.includes("fan") ||
-      productName.includes("ac") ||
-      productName.includes("tv") ||
-      productName.includes("kulkas") ||
-      productName.includes("mesin") ||
-      productName.includes("elektronik")
-    ) {
-      return "Elektronik"
-    }
-    if (productName.includes("phone") || productName.includes("smartphone") || productName.includes("hp")) {
-      return "Handphone"
-    }
-    if (productName.includes("laptop") || productName.includes("notebook") || productName.includes("computer")) {
-      return "Laptop"
-    }
-    if (
-      productName.includes("case") ||
-      productName.includes("charger") ||
-      productName.includes("kabel") ||
-      productName.includes("aksesoris") ||
-      productName.includes("cover")
-    ) {
-      return "Aksesoris"
-    }
-
-    if (product.categories && product.categories.length > 0) {
-      for (const priority of priorityCategories) {
-        const foundCategory = product.categories.find((cat) => {
-          if (typeof cat === "string") {
-            return cat.toLowerCase().includes(priority.toLowerCase())
-          } else if (typeof cat === "object" && cat !== null && "name" in cat) {
-            const categoryName = (cat as any).name
-            return typeof categoryName === "string" && categoryName.toLowerCase().includes(priority.toLowerCase())
-          }
-          return false
-        })
-
-        if (foundCategory) {
-          return priority
-        }
-      }
-
-      const firstCategory = product.categories[0]
-      let result: string | null = null
-
-      if (typeof firstCategory === "string") {
-        result = firstCategory
-      } else if (typeof firstCategory === "object" && firstCategory !== null && "name" in firstCategory) {
-        const categoryName = (firstCategory as any).name
-        result = typeof categoryName === "string" ? categoryName : null
-      }
-
-      return result
-    }
-
-    return null
   }
 
   if (loading) {
@@ -493,16 +405,6 @@ function PaymentConfirmationContent() {
                           {formatCurrency(Number.parseInt(product.price) * product.qty)}
                         </div>
                       </div>
-                      {(() => {
-                        const category = extractProductCategory(product)
-                        return category ? (
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                              📦 {category}
-                            </Badge>
-                          </div>
-                        ) : null
-                      })()}
                     </div>
                   </div>
                   {index < invoiceData.products.length - 1 && <Separator className="mt-4" />}
@@ -522,21 +424,13 @@ function PaymentConfirmationContent() {
           </CardContent>
         </Card>
 
-        {/* Transfer Destination Form */}
-        <TransferDestinationForm
-          onDestinationSelected={handleDestinationSelected}
-          onDestinationCleared={handleDestinationCleared}
-          firstProduct={invoiceData.products[0]}
+        {/* Transfer Details Form */}
+        <TransferDetailsForm
+          totalAmount={invoiceData.total}
+          destinationBank={null}
+          onFormComplete={handleTransferDetailsComplete}
+          onFormIncomplete={handleTransferDetailsIncomplete}
         />
-
-        {showTransferDetails && (
-          <TransferDetailsForm
-            totalAmount={invoiceData.total}
-            destinationBank={selectedDestination}
-            onFormComplete={handleTransferDetailsComplete}
-            onFormIncomplete={handleTransferDetailsIncomplete}
-          />
-        )}
 
         {showPaymentUpload && transferDetails && (
           <PaymentProofUpload invoiceNumber={invoiceData.invoice} transferDetails={transferDetails} />
