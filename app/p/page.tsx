@@ -22,6 +22,7 @@ interface Product {
     src: string
     alt: string
   }>
+  categories?: Array<string | { name: string }>
 }
 
 interface InvoiceData {
@@ -158,6 +159,79 @@ function PaymentConfirmationContent() {
     setTransferDetails(null)
   }
 
+  const extractProductCategory = (product: Product): string | null => {
+    const priorityCategories = ["Elektronik", "Handphone", "Aksesoris", "Sepeda Listrik", "Laptop"]
+
+    const productName = product.name.toLowerCase()
+
+    // Check for "Sepeda Listrik" first since it's most specific
+    if (productName.includes("sepeda") && productName.includes("listrik")) {
+      return "Sepeda Listrik"
+    }
+    if (productName.includes("sepeda") || productName.includes("e-bike") || productName.includes("ebike")) {
+      return "Sepeda Listrik"
+    }
+
+    // Check other priority categories in product name
+    if (
+      productName.includes("fan") ||
+      productName.includes("ac") ||
+      productName.includes("tv") ||
+      productName.includes("kulkas") ||
+      productName.includes("mesin") ||
+      productName.includes("elektronik")
+    ) {
+      return "Elektronik"
+    }
+    if (productName.includes("phone") || productName.includes("smartphone") || productName.includes("hp")) {
+      return "Handphone"
+    }
+    if (productName.includes("laptop") || productName.includes("notebook") || productName.includes("computer")) {
+      return "Laptop"
+    }
+    if (
+      productName.includes("case") ||
+      productName.includes("charger") ||
+      productName.includes("kabel") ||
+      productName.includes("aksesoris") ||
+      productName.includes("cover")
+    ) {
+      return "Aksesoris"
+    }
+
+    if (product.categories && product.categories.length > 0) {
+      for (const priority of priorityCategories) {
+        const foundCategory = product.categories.find((cat) => {
+          if (typeof cat === "string") {
+            return cat.toLowerCase().includes(priority.toLowerCase())
+          } else if (typeof cat === "object" && cat !== null && "name" in cat) {
+            const categoryName = (cat as any).name
+            return typeof categoryName === "string" && categoryName.toLowerCase().includes(priority.toLowerCase())
+          }
+          return false
+        })
+
+        if (foundCategory) {
+          return priority
+        }
+      }
+
+      const firstCategory = product.categories[0]
+      let result: string | null = null
+
+      if (typeof firstCategory === "string") {
+        result = firstCategory
+      } else if (typeof firstCategory === "object" && firstCategory !== null && "name" in firstCategory) {
+        const categoryName = (firstCategory as any).name
+        result = typeof categoryName === "string" ? categoryName : null
+      }
+
+      return result
+    }
+
+    return null
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -278,7 +352,7 @@ function PaymentConfirmationContent() {
                     <Button
                       onClick={() =>
                         window.open(
-                          "https://wa.me/6281236075777?text=Halo,%20saya%20mengalami%20masalah%20dengan%20konfirmasi%20pembayaran",
+                          "https://wa.me/6285157975587?text=Halo,%20saya%20mengalami%20masalah%20dengan%20konfirmasi%20pembayaran",
                           "_blank",
                         )
                       }
@@ -419,6 +493,16 @@ function PaymentConfirmationContent() {
                           {formatCurrency(Number.parseInt(product.price) * product.qty)}
                         </div>
                       </div>
+                      {(() => {
+                        const category = extractProductCategory(product)
+                        return category ? (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                              📦 {category}
+                            </Badge>
+                          </div>
+                        ) : null
+                      })()}
                     </div>
                   </div>
                   {index < invoiceData.products.length - 1 && <Separator className="mt-4" />}
@@ -442,6 +526,7 @@ function PaymentConfirmationContent() {
         <TransferDestinationForm
           onDestinationSelected={handleDestinationSelected}
           onDestinationCleared={handleDestinationCleared}
+          firstProduct={invoiceData.products[0]}
         />
 
         {showTransferDetails && (
